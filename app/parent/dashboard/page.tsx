@@ -21,6 +21,15 @@ interface Transaction {
   created_at: string;
 }
 
+interface Chore {
+  id: string;
+  child_id: string | null;
+  title: string;
+  reward_amount: number;
+  status: "pending" | "requested" | "approved";
+  created_at: string;
+}
+
 const EMOJI_OPTIONS = ["👧", "👦", "🧒", "👶", "🐱", "🐶", "🐰", "🦁", "⭐", "🦄"];
 
 export default function ParentDashboardPage() {
@@ -28,11 +37,18 @@ export default function ParentDashboardPage() {
   const [authed, setAuthed] = useState<boolean>(false);
   const [children, setChildren] = useState<Child[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [chores, setChores] = useState<Chore[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // 아이 추가 폼 state
   const [newName, setNewName] = useState<string>("");
   const [newEmoji, setNewEmoji] = useState<string>("👧");
+
+  // 홈알바 등록 폼 state
+  const [choreTitle, setChoreTitle] = useState<string>("");
+  const [choreReward, setChoreReward] = useState<string>("");
+  const [choreTargetChild, setChoreTargetChild] = useState<string>("all");
+
   const [errorPopup, setErrorPopup] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,6 +80,16 @@ export default function ParentDashboardPage() {
     if (txData) {
       setTransactions(txData);
     }
+
+    const { data: choreData } = await supabase
+      .from("chores")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (choreData) {
+      setChores(choreData);
+    }
+
     setLoading(false);
   }
 
@@ -112,6 +138,84 @@ export default function ParentDashboardPage() {
     const { error } = await supabase.from("transactions").delete().eq("id", txId);
     if (error) {
       setErrorPopup("기록 삭제 중 오류가 발생했어요!");
+      return;
+    }
+    fetchData();
+  };
+
+  const handleAddChore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!choreTitle.trim()) {
+      setErrorPopup("홈알바 이름을 입력해주세요!");
+      return;
+    }
+
+    const parsedReward = parseInt(choreReward, 10);
+    if (isNaN(parsedReward) || parsedReward <= 0) {
+      setErrorPopup("보상 금액을 정확히 입력해주세요!");
+      return;
+    }
+
+    const { error } = await supabase.from("chores").insert([
+      {
+        title: choreTitle.trim(),
+        reward_amount: parsedReward,
+        child_id: choreTargetChild === "all" ? null : choreTargetChild,
+        status: "pending",
+      },
+    ]);
+
+    if (error) {
+      setErrorPopup("홈알바 등록 중 오류가 발생했어요!");
+      return;
+    }
+
+    setChoreTitle("");
+    setChoreReward("");
+    setChoreTargetChild("all");
+    fetchData();
+  };
+
+  const handleApproveChore = async (chore: Chore) => {
+    if (!chore.child_id) {
+      setErrorPopup("알바를 수행한 아이 정보가 지정되지 않았습니다.");
+      return;
+    }
+
+    // 1. transactions에 입금 내역 추가
+    const { error: txError } = await supabase.from("transactions").insert([
+      {
+        child_id: chore.child_id,
+        type: "deposit",
+        amount: chore.reward_amount,
+        memo: `홈알바: ${chore.title}`,
+      },
+    ]);
+
+    if (txError) {
+      setErrorPopup("저금통 잔액 적립 중 오류가 발생했어요!");
+      return;
+    }
+
+    // 2. chores 상태를 'approved'로 변경
+    const { error: choreError } = await supabase
+      .from("chores")
+      .update({ status: "approved" })
+      .eq("id", chore.id);
+
+    if (choreError) {
+      setErrorPopup("알바 승인 상태 업데이트 중 오류가 발생했어요!");
+      return;
+    }
+
+    fetchData();
+  };
+
+  const handleDeleteChore = async (choreId: string) => {
+    if (!confirm("이 홈알바 항목을 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("chores").delete().eq("id", choreId);
+    if (error) {
+      setErrorPopup("홈알바 삭제 중 오류가 발생했어요!");
       return;
     }
     fetchData();
@@ -231,6 +335,112 @@ export default function ParentDashboardPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* 홈알바 등록 및 승인 관리 섹션 */}
+          <div className="bg-white p-6 rounded-xl shadow-md border-2 border-pink-100 flex flex-col gap-6">
+            <h2 className="text-xl font-bold text-textColor">🧹 홈알바(집안일) 관리 및 승인</h2>
+
+            {/* 홈알바 등록 폼 */}
+            <form onSubmit={handleAddChore} className="flex flex-col gap-4 bg-pink-50/40 p-4 rounded-xl border border-pink-200">
+              <h3 className="text-lg font-bold text-textColor">새 홈알바 등록</h3>
+              <div>
+                <label className="text-sm font-bold text-gray-600 mb-1 block">알바 이름</label>
+                <input
+                  type="text"
+                  value={choreTitle}
+                  onChange={(e) => setChoreTitle(e.target.value)}
+                  placeholder="예: 설거지하기"
+                  className="w-full p-3 text-base bg-white rounded-xl border-2 border-pink-200 focus:outline-none focus:border-primary min-h-[48px]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold text-gray-600 mb-1 block">보상 금액 (원)</label>
+                  <input
+                    type="number"
+                    value={choreReward}
+                    onChange={(e) => setChoreReward(e.target.value)}
+                    placeholder="예: 2000"
+                    className="w-full p-3 text-base bg-white rounded-xl border-2 border-pink-200 focus:outline-none focus:border-primary min-h-[48px]"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-gray-600 mb-1 block">대상 아이</label>
+                  <select
+                    value={choreTargetChild}
+                    onChange={(e) => setChoreTargetChild(e.target.value)}
+                    className="w-full p-3 text-base bg-white rounded-xl border-2 border-pink-200 focus:outline-none focus:border-primary min-h-[48px]"
+                  >
+                    <option value="all">전체 아이 공용</option>
+                    {children.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <Button
+                type="submit"
+                className="bg-green-400 text-white font-bold w-full py-3 text-lg shadow-sm hover:bg-green-50"
+              >
+                홈알바 등록하기 📝
+              </Button>
+            </form>
+
+            {/* 홈알바 목록 및 승인 대기 처리 */}
+            <div className="flex flex-col gap-3">
+              <h3 className="text-lg font-bold text-textColor">등록된 홈알바 및 승인 대기 목록</h3>
+              {chores.length === 0 ? (
+                <p className="text-gray-500 py-4 text-center">등록된 홈알바가 없습니다.</p>
+              ) : (
+                <div className="flex flex-col gap-3 max-h-80 overflow-y-auto pr-1">
+                  {chores.map((chore) => {
+                    const assignedChild = children.find((c) => c.id === chore.child_id);
+                    return (
+                      <div
+                        key={chore.id}
+                        className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200"
+                      >
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-secondary">
+                              [{assignedChild ? assignedChild.name : "전체 공용"}]
+                            </span>
+                            <span className="font-bold text-sm text-red-500">
+                              +{chore.reward_amount.toLocaleString()}원
+                            </span>
+                          </div>
+                          <span className="text-base font-bold text-textColor">{chore.title}</span>
+                          <span className="text-xs text-gray-400">
+                            상태: {chore.status === "pending" && "미완료"}
+                            {chore.status === "requested" && "승인 대기중 ⏳"}
+                            {chore.status === "approved" && "승인 완료 ✨"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {chore.status === "requested" && (
+                            <button
+                              onClick={() => handleApproveChore(chore)}
+                              className="bg-green-500 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-green-600 min-h-[40px]"
+                            >
+                              승인 & 적립 💰
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteChore(chore.id)}
+                            className="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-bold hover:bg-red-200 min-h-[40px]"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 전체 내역 및 강제 수정(삭제) 섹션 */}

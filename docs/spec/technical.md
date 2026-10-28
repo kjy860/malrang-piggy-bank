@@ -1,6 +1,6 @@
 # 말랑저금통 — 기술·데이터 설계
 
-> 문서 버전 v3 · 완성도 100% · 마지막 수정 2026. 10. 28. 17시 35분 10초
+> 문서 버전 v5 · 완성도 100% · 마지막 수정 2026. 10. 28. 17시 44분 44초
 > 이 문서만 보고 AI(또는 개발자)가 개발해도 거의 같은 결과가 나오도록 작성되었습니다.
 
 ## 기본 정보
@@ -39,6 +39,14 @@
 - `current_amount` (integer, 현재 모은 금액)
 - `is_achieved` (boolean)
 
+#### 4. `chores` (홈알바 목록 및 상태)
+- `id` (uuid, Primary Key)
+- `child_id` (uuid, 외래키 `children.id`, null이면 전체 아이 공용)
+- `title` (text, 알바 이름)
+- `reward_amount` (integer, 보상 금액)
+- `status` (text: 'pending' [미완료], 'requested' [승인 대기], 'approved' [승인 완료])
+- `created_at` (timestamp with time zone)
+
 #### RLS(행 수준 보안) 정책
 - 모든 테이블은 공용 세션 환경을 위해 공개(Public) CRUD 정책을 허용함 (`CREATE POLICY "Allow public access" ON [table_name] FOR ALL USING (true) WITH CHECK (true);`)
 
@@ -53,7 +61,7 @@
 ### 환경 변수 명세 (`.env.local`)
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase 프로젝트 URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase 익명 공개 키
-- `SUPABASE_SERVICE_ROLE_KEY`: Supabase 관리자 키 (필요 시)
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase 서비스 롤 키 (서버단 권한 제어용, 선택)
 
 ### 폴더 구조
 ```text
@@ -65,11 +73,13 @@
 │   │   └── page.tsx (입출금 추가 화면)
 │   ├── goal/
 │   │   └── page.tsx (목표 설정 화면)
+│   ├── chores/
+│   │   └── page.tsx (홈알바 목록 및 신청 화면)
 │   └── parent/
 │       ├── auth/
 │       │   └── page.tsx (비밀번호 입력 화면)
 │       └── dashboard/
-│           └── page.tsx (부모 관리 대시보드)
+│           └── page.tsx (부모 관리 대시보드 - 알바 등록/승인 포함)
 ├── components/
 │   ├── PiggyAnimation.tsx
 │   └── Button.tsx
@@ -88,6 +98,8 @@
 
 | 버전 | 일시 | 변경 내용 |
 | --- | --- | --- |
+| v5 | 2026. 10. 28. 17시 44분 2초 | 최종 감수: 최종 감수 완료: 홈알바 기능 반영 및 전체 문서 정합성 검증 완료 |
+| v4 | 2026. 10. 28. 17시 43분 58초 | 홈알바(심부름/집안일) 기능 추가, 홈알바 목록 관리 및 완료 시 저금통 자동/수동 적립 연동 설계 반영 |
 | v3 | 2026. 10. 28. 17시 15분 21초 | 최종 감수: 최종 감수 완료: 모든 섹션의 일관성을 맞추고 수용 기준, 테스트 시나리오, 기술 환경변수 및 폴더 구조를 구체화함 |
 | v2 | 2026. 10. 28. 17시 15분 10초 | 어린이 다원화 관리 방식(아이 선택 화면 및 추가/삭제)과 부모 모드 4자리 비밀번호 보안 장치를 반영하여 문서 전체를 구체화함 |
 | v1 | 2026. 10. 28. 17시 13분 50초 | 어린이용 저금통 관리 웹사이트 초기 개발 문서 작성 및 기본 구조 설정 |

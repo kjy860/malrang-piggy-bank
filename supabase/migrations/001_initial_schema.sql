@@ -25,9 +25,19 @@ create table if not exists goals (
   is_achieved boolean default false not null
 );
 
+create table if not exists chores (
+  id uuid default gen_random_uuid() primary key,
+  child_id uuid references children(id) on delete cascade,
+  title text not null,
+  reward_amount integer not null,
+  status text not null check (status in ('pending', 'requested', 'approved')) default 'pending',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 alter table children enable row level security;
 alter table transactions enable row level security;
 alter table goals enable row level security;
+alter table chores enable row level security;
 
 drop policy if exists "Allow public access" on children;
 create policy "Allow public access" on children for all using (true) with check (true);
@@ -37,3 +47,6 @@ create policy "Allow public access" on transactions for all using (true) with ch
 
 drop policy if exists "Allow public access" on goals;
 create policy "Allow public access" on goals for all using (true) with check (true);
+
+drop policy if exists "Allow public access" on chores;
+create policy "Allow public access" on chores for all using (true) with check (true);

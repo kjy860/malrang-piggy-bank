@@ -77,7 +77,6 @@ function BankContent() {
 
       if (goalData) {
         setGoal(goalData);
-        // 만약 current_amount가 잔액과 다를 경우 동기화 또는 목표 달성 체크
         if (!goalData.is_achieved && calculatedBalance >= goalData.target_amount) {
           await supabase
             .from("goals")
@@ -134,17 +133,25 @@ function BankContent() {
       <div className="w-full flex justify-between items-center mb-4">
         <button
           onClick={() => router.push("/")}
-          className="bg-white px-4 py-2 rounded-xl shadow-sm hover:bg-gray-50 text-base font-bold text-gray-700 min-h-[48px]"
+          className="bg-white px-3 py-2 rounded-xl shadow-sm hover:bg-gray-50 text-sm font-bold text-gray-700 min-h-[48px]"
         >
-          🏠 처음으로
+          🏠 처음
         </button>
-        <span className="text-xl font-bold text-textColor">{childName}의 저금통</span>
-        <button
-          onClick={() => router.push(`/goal?child_id=${childId}`)}
-          className="bg-white px-4 py-2 rounded-xl shadow-sm hover:bg-gray-50 text-base font-bold text-gray-700 min-h-[48px]"
-        >
-          🎯 목표 설정
-        </button>
+        <span className="text-lg font-bold text-textColor">{childName}의 저금통</span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push(`/chores?child_id=${childId}`)}
+            className="bg-green-100 text-green-700 px-3 py-2 rounded-xl shadow-sm hover:bg-green-200 text-sm font-bold min-h-[48px]"
+          >
+            🧹 홈알바
+          </button>
+          <button
+            onClick={() => router.push(`/goal?child_id=${childId}`)}
+            className="bg-white px-3 py-2 rounded-xl shadow-sm hover:bg-gray-50 text-sm font-bold text-gray-700 min-h-[48px]"
+          >
+            🎯 목표
+          </button>
+        </div>
       </div>
 
       {/* 저금통 애니메이션 영역 */}
